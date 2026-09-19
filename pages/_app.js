@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import InstallPrompt from '../components/InstallPrompt';
 import ConnectionBanner from '../components/ConnectionBanner';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { initLocalReminders } from '../utils/local-reminders';
 import '../styles/globals.css';
 
@@ -58,7 +59,7 @@ export default function App({ Component, pageProps }) {
   }, []);
 
   return (
-    <>
+    <ErrorBoundary>
       <Head>
         <title>هُدى - منصة إسلامية شاملة</title>
         <meta name="description" content="هُدى - منصة إسلامية شاملة تضم القرآن الكريم، الأذكار والأدعية، معالم الصلاة، الأسماء الحسنى، والمزيد" />
@@ -67,13 +68,13 @@ export default function App({ Component, pageProps }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="هُدَى" />
-        <meta name="application-name" content="هُدَى" />
+        <meta name="application-name" content="هُدى" />
       </Head>
       <Layout>
         {(childProps) => <Component {...pageProps} {...childProps} />}
       </Layout>
       <InstallPrompt />
       <ConnectionBanner />
-    </>
+    </ErrorBoundary>
   );
 }
