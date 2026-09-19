@@ -1,0 +1,27 @@
+# هُدَى — إعدادات Apache لاستضافة InfinityFree
+# يُنسخ هذا الملف تلقائيًا إلى جذر مجلد الرفع (out)
+
+AddDefaultCharset UTF-8
+DirectoryIndex index.html
+
+# صفحة 404 المخصّصة التي يولّدها Next
+ErrorDocument 404 /404.html
+
+# ضغط المحتوى النصي لتسريع التحميل
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml application/xml
+</IfModule>
+
+# تخزين مؤقت طويل للأصول الثابتة (أسماء الملفات تحتوي بصمة الإصدار)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>

@@ -1,0 +1,32 @@
+{
+  "name": "huda",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:server": "node server.js",
+    "build": "next build",
+    "preview": "npx serve out -l 3000",
+    "start": "npx serve out -l 3000",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write \"**/*.{js,jsx,json,css}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,json,css}\""
+  },
+  "dependencies": {
+    "adhan": "^4.4.4",
+    "next": "^14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "prettier": "^3.9.6",
+    "puppeteer-core": "^25.8.0",
+    "typescript": "^6.0.3"
+  }
+}
