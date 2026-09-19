@@ -94,6 +94,8 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -120,10 +122,10 @@ body::before {
   color: #fff;
 }
 
-a { text-decoration: none; color: inherit; }
+a { text-decoration: none; color: inherit; touch-action: manipulation; }
 ul { list-style: none; }
 img { max-width: 100%; display: block; }
-button { cursor: pointer; font-family: inherit; border: none; background: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 input, textarea { font-family: inherit; outline: none; }
 
 /* Scrollbar */
@@ -7885,4 +7887,13 @@ select {
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
+}
+
+/* ===== Mobile touch (Android Chrome): stop hover effects from sticking/"growing" after a tap ===== */
+@media (hover: none) and (pointer: coarse) {
+  .adhkar-featured-card:hover { transform: none; box-shadow: none; }
+  .adhkar-featured-card:hover .adhkar-featured-icon { transform: none; }
+  .adhkar-cat-card:hover { transform: none; }
+  .adhkar-cat-card:hover .adhkar-cat-icon { transform: none; }
+  .qibla-home-link:hover { transform: none; }
 }
