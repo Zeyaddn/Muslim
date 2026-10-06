@@ -1,4 +1,4 @@
-﻿/** @type {import('next').NextConfig} */
+/** @type {import('next').NextConfig} */
 
 // Static export target (InfinityFree / any static host: PHP, Apache, etc.).
 // The site runs fully client-side; there is NO Node server in production.
@@ -7,7 +7,6 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: 'export',
   trailingSlash: true,
   images: {
     // Required for static export — no server-side image optimizer available.

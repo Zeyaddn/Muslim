@@ -1,59 +1,119 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+const isIOSDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+const isAndroidDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent || '');
+};
+
+const isStandalone = () => {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+    window.navigator.standalone === true
+  );
+};
+
+const STEPS = {
+  ios: [
+    { icon: 'fa-arrow-up-from-bracket', html: <>اضغط زر <i className="fas fa-arrow-up-from-bracket"></i> <b>المشاركة</b> في شريط سفاري <b>بالأسفل</b> (ليس في جنب شريط العنوان)</> },
+    { icon: 'fa-square-plus', html: <>انزل في القائمة واختر <b>«إضافة إلى الشاشة الرئيسية»</b></> },
+    { icon: 'fa-check', html: <>اضغط <b>«إضافة»</b> في الأعلى — هيظهر أيقونة هُدَى على شاشتك</> },
+  ],
+  android: [
+    { icon: 'fa-ellipsis-vertical', html: <>اضغط النقاط الثلاث <i className="fas fa-ellipsis-vertical"></i> في <b>أعلى يمين</b> متصفح كروم</> },
+    { icon: 'fa-download', html: <>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b></> },
+    { icon: 'fa-check', html: <>اضغط <b>«تثبيت»</b> — هيظهر أيقونة هُدَى على شاشتك</> },
+  ],
+  android_samsung: [
+    { icon: 'fa-ellipsis-vertical', html: <>اضغط النقاط الثلاث <i className="fas fa-ellipsis-vertical"></i> في <b>أسفل</b> متصفح Samsung Internet</> },
+    { icon: 'fa-plus-square', html: <>اختر <b>«إضافة إلى الشاشة الرئيسية»</b></> },
+    { icon: 'fa-check', html: <>اضغط <b>«إضافة»</b> — هيظهر أيقونة هُدَى على شاشتك</> },
+  ],
+  desktop: [
+    { icon: 'fa-download', html: <>اضغط أيقونة <b>التثبيت</b> في شريط العنوان (أو من قائمة المتصفح)</> },
+  ],
+};
 
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null);
-  const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [iosStepsOpen, setIosStepsOpen] = useState(false);
+  const [platform, setPlatform] = useState('desktop');
+  const [installed, setInstalled] = useState(false);
+  const [stepsOpen, setStepsOpen] = useState(false);
 
+  // Decide the platform + whether we are already running as an installed app.
   useEffect(() => {
-    let bipHandler;
-    try {
-      const standalone =
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.matchMedia('(display-mode: minimal-ui)').matches ||
-        window.navigator.standalone === true;
-      if (standalone || localStorage.getItem('huda_pwa_dismissed') || localStorage.getItem('huda_pwa_installed')) return;
+    setPlatform(
+      isIOSDevice() ? 'ios' : isAndroidDevice() ? (/SamsungBrowser/i.test(navigator.userAgent) ? 'android_samsung' : 'android') : 'desktop'
+    );
+    setInstalled(isStandalone());
+  }, []);
 
-      const ua = navigator.userAgent || '';
-      const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      setIsIOS(ios);
+  // Capture the native Android/Chrome install event. Must run before anything
+  // else so Chrome does not consider the event "used up".
+  useEffect(() => {
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferred(e);
+      try { localStorage.removeItem('huda_pwa_dismissed'); } catch (err) {}
+      setVisible(true);
+    };
+    const onInstalled = () => {
+      try { localStorage.setItem('huda_pwa_installed', '1'); } catch (err) {}
+      setInstalled(true);
+      setVisible(false);
+      setDeferred(null);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
 
-      bipHandler = (e) => { e.preventDefault(); setDeferred(e); };
-      window.addEventListener('beforeinstallprompt', bipHandler);
+  // iOS has no programmatic install API — surface the guide by itself.
+  // Android/Desktop wait for the real event so we never show a fake button.
+  useEffect(() => {
+    if (installed) return;
+    if (platform === 'ios') {
+      try { if (localStorage.getItem('huda_pwa_dismissed')) return; } catch (e) {}
+      const t = setTimeout(() => setVisible(true), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [installed, platform]);
 
-      const onInstalled = () => {
-        localStorage.setItem('huda_pwa_installed', '1');
-        setVisible(false);
-      };
-      window.addEventListener('appinstalled', onInstalled);
-
-      const t = setTimeout(() => setReady(true), 7000);
-      return () => {
-        clearTimeout(t);
-        window.removeEventListener('beforeinstallprompt', bipHandler);
-        window.removeEventListener('appinstalled', onInstalled);
-      };
-    } catch (e) { /* noop */ }
+  // Manual trigger: the Navbar menu and ?install=1 can re-open this any time.
+  const open = useCallback(() => {
+    if (isStandalone()) return;
+    setVisible(true);
   }, []);
 
   useEffect(() => {
-    if (ready && (deferred || isIOS)) setVisible(true);
-  }, [ready, deferred, isIOS]);
+    window.addEventListener('huda:open-install', open);
+    if (typeof window !== 'undefined' && /[?&]install=1/.test(window.location.search)) open();
+    return () => window.removeEventListener('huda:open-install', open);
+  }, [open]);
 
   const install = async () => {
-    if (!deferred) {
-      if (isIOS) setIosStepsOpen(true);
-      return;
+    if (deferred) {
+      try {
+        deferred.prompt();
+        const { outcome } = await deferred.userChoice;
+        if (outcome === 'accepted') return;
+      } catch (e) {}
+      // User said no, or the native sheet failed — fall back to the guide.
     }
-    try {
-      deferred.prompt();
-      const { outcome } = await deferred.userChoice;
-      localStorage.setItem(outcome === 'accepted' ? 'huda_pwa_installed' : 'huda_pwa_dismissed', '1');
-    } catch (e) { /* noop */ }
-    setVisible(false);
-    setDeferred(null);
+    setStepsOpen(true);
   };
 
   const dismiss = () => {
@@ -61,41 +121,49 @@ export default function InstallPrompt() {
     setVisible(false);
   };
 
+  const steps = STEPS[platform] || STEPS.desktop;
+  const showStepsInstead = !deferred;
+
   return (
     <>
       <div className={`install-banner${visible ? ' show' : ''}`} role="dialog" aria-label="تثبيت التطبيق">
         <div className="install-icon"><i className="fas fa-star-and-crescent"></i></div>
         <div className="install-text">
           <strong>ثبّت هُدَى على جهازك</strong>
-          <span>وصول أسرع وتجربة تطبيق كاملة بدون شريط المتصفح</span>
+          <span>
+            {deferred
+              ? 'وصول أسرع وتجربة تطبيق كاملة بدون شريط المتصفح'
+              : platform === 'ios'
+                ? 'اضغط للتعرف على طريقة الإضافة على الآيفون'
+                : 'اضغط لعرض خطوات التثبيت على جهازك'}
+          </span>
         </div>
         <div className="install-actions">
           <button className="install-yes" onClick={install}>
-            <i className={`fas ${isIOS && !deferred ? 'fa-circle-info' : 'fa-download'}`}></i>
-            {isIOS && !deferred ? 'طريقة التثبيت' : 'تثبيت'}
+            <i className={`fas ${showStepsInstead ? 'fa-circle-info' : 'fa-download'}`}></i>
+            {showStepsInstead ? 'طريقة التثبيت' : 'تثبيت'}
           </button>
           <button className="install-no" onClick={dismiss} aria-label="إخفاء">لاحقاً</button>
         </div>
       </div>
 
-      <div className={`ios-install-modal${iosStepsOpen ? ' open' : ''}`} onClick={() => setIosStepsOpen(false)}>
+      <div className={`ios-install-modal${stepsOpen ? ' open' : ''}`} onClick={() => setStepsOpen(false)}>
         <div className="ios-install-card" onClick={(e) => e.stopPropagation()}>
-          <button className="ios-close" onClick={() => setIosStepsOpen(false)}><i className="fas fa-times"></i></button>
+          <button className="ios-close" onClick={() => setStepsOpen(false)} aria-label="إغلاق"><i className="fas fa-times"></i></button>
           <h3>إضافة هُدَى إلى الشاشة الرئيسية</h3>
           <ol className="ios-steps">
-            <li>
-              <span className="step-num">1</span>
-              <span>اضغط على زر <i className="fas fa-arrow-up-from-bracket"></i> <b>المشاركة</b> في شريط سفاري أسفل الشاشة</span>
-            </li>
-            <li>
-              <span className="step-num">2</span>
-              <span>اختر <b>«إضافة إلى الشاشة الرئيسية»</b> <i className="fas fa-plus-square"></i></span>
-            </li>
-            <li>
-              <span className="step-num">3</span>
-              <span>اضغط <b>«إضافة»</b> — سيظهر تطبيق هُدَى على شاشتك كالتطبيقات الأخرى</span>
-            </li>
+            {steps.map((s, i) => (
+              <li key={i}>
+                <span className="step-num">{i + 1}</span>
+                <span>{s.html}</span>
+              </li>
+            ))}
           </ol>
+          {deferred && (
+            <button className="ios-steps-direct" onClick={install}>
+              <i className="fas fa-download"></i> جرّب التثبيت المباشر
+            </button>
+          )}
         </div>
       </div>
     </>

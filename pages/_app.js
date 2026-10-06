@@ -65,10 +65,12 @@ export default function App({ Component, pageProps }) {
         <meta name="description" content="هُدى - منصة إسلامية شاملة تضم القرآن الكريم، الأذكار والأدعية، معالم الصلاة، الأسماء الحسنى، والمزيد" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <meta name="apple-mobile-web-app-title" content="هُدَى" />
-        <meta name="application-name" content="هُدى" />
+        <meta name="application-name" content="هُدَى" />
+        <meta name="color-scheme" content="light dark" />
       </Head>
       <Layout>
         {(childProps) => <Component {...pageProps} {...childProps} />}

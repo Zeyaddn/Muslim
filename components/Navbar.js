@@ -27,6 +27,11 @@ export default function Navbar({ activePage, onNavigate, theme, onToggleTheme, o
 
   const closeMobile = () => setMobileOpen(false);
 
+  const openInstallGuide = () => {
+    closeMobile();
+    try { window.dispatchEvent(new CustomEvent('huda:open-install')); } catch (e) {}
+  };
+
   return (
     <>
       <nav className={`navbar${scrolled ? ' scrolled' : ''}`}>
@@ -54,6 +59,10 @@ export default function Navbar({ activePage, onNavigate, theme, onToggleTheme, o
             <button className="theme-toggle" onClick={onOpenSettings} aria-label="الإعدادات" title="الإعدادات">
               <i className="fas fa-cog theme-icon"></i>
             </button>
+<button className="theme-toggle install-nav-btn" onClick={openInstallGuide}
+              aria-label="تثبيت التطبيق" title="تثبيت التطبيق على الجهاز">
+              <i className="fas fa-download theme-icon"></i>
+            </button>
             <button className="theme-toggle" onClick={onToggleTheme} aria-label="تبديل الوضع">
               <i className={`fas ${theme === 'light' ? 'fa-moon' : 'fa-sun'} theme-icon`}></i>
             </button>
@@ -78,8 +87,11 @@ export default function Navbar({ activePage, onNavigate, theme, onToggleTheme, o
             </a>
           )
         ))}
-        <a href="#" onClick={e => { e.preventDefault(); setMobileOpen(false); if (onOpenSettings) onOpenSettings(); }}>
+<a href="#" onClick={e => { e.preventDefault(); setMobileOpen(false); if (onOpenSettings) onOpenSettings(); }}>
           <i className="fas fa-cog"></i> الإعدادات
+        </a>
+        <a href="#" onClick={e => { e.preventDefault(); openInstallGuide(); }}>
+          <i className="fas fa-download"></i> تثبيت التطبيق على الجهاز
         </a>
       </div>
     </>

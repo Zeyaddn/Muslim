@@ -773,9 +773,9 @@ export default function Index({ activePage, onNavigate, theme }) {
       a.addEventListener('canplay', doPlay, { once: true });
     }
 
+    setCurrentSurahInfo(apiSurahs.find(s => s.id === surahId) || null);
     if (openTv) {
       setQuranTvMode(true);
-      setCurrentSurahInfo(apiSurahs.find(s => s.id === surahId) || null);
       _setTvImageSrc(TV_IMAGES[Math.floor(Math.random() * TV_IMAGES.length)]);
     }
   }, [selectedReciter, apiSurahs, playAyahFile, resolveAyahPlan]);
@@ -821,7 +821,7 @@ export default function Index({ activePage, onNavigate, theme }) {
       else { a.play().then(() => setAudioPlaying(true)).catch(() => showToast('تعذر تشغيل الصوت', 'error')); }
       return;
     }
-    fetchSurahAndPlay(surahId, true);
+    fetchSurahAndPlay(surahId, false);
   }, [audioPlaying, fetchSurahAndPlay]);
 
   // Toolbar toggle inside the reader: pause/resume current audio instead of reloading.
@@ -952,7 +952,12 @@ export default function Index({ activePage, onNavigate, theme }) {
       if (durs[finished]) completedAudioRef.current += durs[finished];
       const next = finished + 1;
       if (sd && sd.number === ayahStateRef.current.surahId && next < sd.ayahs.length) {
-        playAyahFile(sd.number, next);
+        // Fast gapless transition
+        if (nextAudioRef.current && nextAudioRef.current.readyState >= 3) {
+           playAyahFile(sd.number, next);
+        } else {
+           playAyahFile(sd.number, next);
+        }
         return;
       }
     }

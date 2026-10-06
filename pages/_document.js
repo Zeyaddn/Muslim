@@ -7,16 +7,20 @@ export default class MyDocument extends Document {
         <Head>
           <meta charSet="UTF-8" />
           <meta name="theme-color" content="#1a6b4a" />
+          <meta name="color-scheme" content="light dark" />
           <meta name="mobile-web-app-capable" content="yes" />
+          <meta name="mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black" />
           <meta name="apple-mobile-web-app-title" content="هُدى" />
           <meta name="application-name" content="هُدى" />
 
           {/* Manifest */}
           <link rel="manifest" href="/manifest.json" />
           <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+          <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
 
           {/* DNS prefetch for external APIs */}
           <link rel="dns-prefetch" href="https://api.islamic.app" />
