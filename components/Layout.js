@@ -7,7 +7,7 @@ import SettingsModal from './SettingsModal';
 import { startNativePermissionFlow } from '../utils/prayer-push';
 
 const _themeIcons = { light: 'fa-moon', dark: 'fa-sun' };
-const VALID_PAGES = ['home', 'quran', 'quran-reader', 'adhkar', 'tasbeeh', 'names', 'articles', 'library', 'videos', 'contact'];
+const VALID_PAGES = ['home', 'quran', 'quran-reader', 'qibla', 'adhkar', 'tasbeeh', 'names', 'articles', 'library', 'videos', 'contact'];
 
 export default function Layout({ children }) {
   const [theme, setTheme] = useState('light');

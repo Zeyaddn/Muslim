@@ -35,6 +35,7 @@ const ContactPage = dynamic(() => import('../sections/ContactPage'), { ssr: fals
 const BookViewer = dynamic(() => import('../overlays/BookViewer'), { ssr: false, ...LF });
 const QuranTvOverlay = dynamic(() => import('../overlays/QuranTvOverlay'), { ssr: false, ...LF });
 const QuranPage = dynamic(() => import('../sections/QuranPage'), { ssr: false, ...LF });
+const QiblaPage = dynamic(() => import('../sections/QiblaPage'), { ssr: false, ...LF });
 const FloatingAudioPlayer = dynamic(() => import('../overlays/FloatingAudioPlayer'), { ssr: false, ...LF });
 
 const PRAYER_NAMES = ['الفجر', 'الشروق', 'الظهر', 'العصر', 'المغرب', 'العشاء'];
@@ -119,7 +120,7 @@ export default function Index({ activePage, onNavigate, theme }) {
     const applyHash = () => {
       try {
         const hash = window.location.hash.replace('#', '');
-        if (['quran', 'tasbeeh', 'adhkar', 'names', 'articles', 'library', 'videos', 'contact'].includes(hash)) {
+        if (['quran', 'qibla', 'tasbeeh', 'adhkar', 'names', 'articles', 'library', 'videos', 'contact'].includes(hash)) {
           if (typeof effectiveNavigate === 'function') effectiveNavigate(hash);
           else setPage(hash);
         }
@@ -138,7 +139,7 @@ export default function Index({ activePage, onNavigate, theme }) {
       target = sessionStorage.getItem('huda_nav_target');
       sessionStorage.removeItem('huda_nav_target');
     } catch (e) {}
-    if (target && ['quran', 'tasbeeh', 'adhkar', 'names', 'articles', 'library', 'videos', 'contact'].includes(target)) {
+    if (target && ['quran', 'qibla', 'tasbeeh', 'adhkar', 'names', 'articles', 'library', 'videos', 'contact'].includes(target)) {
       if (typeof effectiveNavigate === 'function') effectiveNavigate(target);
       else setPage(target);
     }
@@ -1232,7 +1233,8 @@ export default function Index({ activePage, onNavigate, theme }) {
 
       {effectivePage === 'videos' && <VideosPage effectivePage={effectivePage} />}
 
-      
+      {effectivePage === 'qibla' && <QiblaPage effectivePage={effectivePage} />}
+
       {effectivePage === 'contact' && <ContactPage effectivePage={effectivePage} />}
 
       {showGeoBanner && (

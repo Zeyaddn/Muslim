@@ -5,14 +5,14 @@ export default function SplashScreen() {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Show splash for 1.8 seconds on initial boot
+    // Quick, smooth splash for 1.4 seconds then fade out
     const fadeTimer = setTimeout(() => {
       setFading(true);
-    }, 1800);
+    }, 1400);
 
     const removeTimer = setTimeout(() => {
       setVisible(false);
-    }, 2300);
+    }, 1800);
 
     return () => {
       clearTimeout(fadeTimer);
@@ -23,7 +23,13 @@ export default function SplashScreen() {
   if (!visible) return null;
 
   return (
-    <div className={`app-splash-screen ${fading ? 'fade-out' : ''}`}>
+    <div
+      className={`app-splash-screen ${fading ? 'fade-out' : ''}`}
+      onClick={() => {
+        setFading(true);
+        setTimeout(() => setVisible(false), 300);
+      }}
+    >
       <div className="splash-pattern-bg"></div>
       
       <div className="splash-content">
