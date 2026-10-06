@@ -5,7 +5,6 @@ import Layout from '../components/Layout';
 import InstallPrompt from '../components/InstallPrompt';
 import ConnectionBanner from '../components/ConnectionBanner';
 import ErrorBoundary from '../components/ErrorBoundary';
-import SplashScreen from '../components/SplashScreen';
 import { initLocalReminders } from '../utils/local-reminders';
 import '../styles/globals.css';
 
@@ -68,7 +67,6 @@ export default function App({ Component, pageProps }) {
       <Layout>
         {(childProps) => <Component {...pageProps} {...childProps} />}
       </Layout>
-      <SplashScreen />
       <InstallPrompt />
       <ConnectionBanner />
     </ErrorBoundary>

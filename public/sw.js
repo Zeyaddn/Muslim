@@ -1,5 +1,5 @@
-/* هُدَى Service Worker — PWA v9 (Instant App Launch + Offline First) */
-const VERSION = 'huda-v9';
+/* هُدَى Service Worker — PWA v10 (Instant App Launch + Offline First) */
+const VERSION = 'huda-v10';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 const IMAGE_CACHE = VERSION + '-images';
