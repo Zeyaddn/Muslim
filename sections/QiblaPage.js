@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getQiblaDirection, getDirectionName } from '../utils';
 import { getGeoCache, saveGeoCache } from '../utils/prayer-push';
+import { EGYPT_CITY_COORDS } from '../constants';
 
-const KAABA = { lat: 21.4224779, lng: 39.8251832 };
+const KAABA = { lat: 21.422487, lng: 39.826206 };
 const EARTH_R = 6371;
 
 function kaabaDistanceKm(lat, lng) {
-  const dLat = (KAABA.lat - lat) * Math.PI / 180;
-  const dLng = (KAABA.lng - lng) * Math.PI / 180;
+  const dLat = ((KAABA.lat - lat) * Math.PI) / 180;
+  const dLng = ((KAABA.lng - lng) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat * Math.PI / 180) * Math.cos(KAABA.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    Math.cos((lat * Math.PI) / 180) * Math.cos((KAABA.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return 2 * EARTH_R * Math.asin(Math.sqrt(a));
 }
 
@@ -21,72 +22,184 @@ const CARDINALS = [
   { deg: 270, label: 'غ' },
 ];
 
-function shortestDiff(a, b) {
-  let d = (b - a) % 360;
-  if (d > 180) d -= 360;
-  if (d < -180) d += 360;
-  return d;
+function shortestDiff(from, to) {
+  let diff = (to - from) % 360;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return diff;
+}
+
+// 3D Tilt-compensated heading calculation for Android / standard sensors
+function computeTiltCompensatedHeading(alpha, beta, gamma) {
+  const degToRad = Math.PI / 180;
+  const _x = (beta || 0) * degToRad;
+  const _y = (gamma || 0) * degToRad;
+  const _z = (alpha || 0) * degToRad;
+
+  const cY = Math.cos(_y);
+  const cZ = Math.cos(_z);
+  const sX = Math.sin(_x);
+  const sY = Math.sin(_y);
+  const sZ = Math.sin(_z);
+
+  const Vx = -cZ * sY - sZ * sX * cY;
+  const Vy = -sZ * sY + cZ * sX * cY;
+
+  let heading = Math.atan2(Vx, Vy) * (180 / Math.PI);
+  if (heading < 0) heading += 360;
+  return heading;
 }
 
 export default function QiblaPage({ effectivePage }) {
   const [phase, setPhase] = useState('idle'); // idle | locating | active | denied | error | unsupported
   const [coords, setCoords] = useState(null);
+  const [selectedCity, setSelectedCity] = useState('');
   const [bearing, setBearing] = useState(null);
   const [distance, setDistance] = useState(null);
   const [heading, setHeading] = useState(0);
-  const [compassMode, setCompassMode] = useState(null); // 'abs' | 'webkit' | 'none'
+  const [compassMode, setCompassMode] = useState('checking'); // 'webkit' | 'abs' | 'tilt' | 'none'
   const [showCalibrate, setShowCalibrate] = useState(false);
-  const headingRef = useRef(null);
-  const watchIdRef = useRef(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
 
-  // Prefill from the shared location cache — no new permission prompt needed
+  const targetHeadingRef = useRef(0);
+  const currentHeadingRef = useRef(0);
+  const animFrameRef = useRef(null);
+  const watchPosIdRef = useRef(null);
+  const wasAlignedRef = useRef(false);
+
+  // Smooth 60fps interpolation loop
   useEffect(() => {
-    if (phase !== 'idle') return;
+    const loop = () => {
+      const cur = currentHeadingRef.current;
+      const target = targetHeadingRef.current;
+      const delta = shortestDiff(cur, target);
+
+      // Low-pass smooth filter (speed 0.22)
+      if (Math.abs(delta) > 0.05) {
+        const next = cur + delta * 0.22;
+        currentHeadingRef.current = ((next % 360) + 360) % 360;
+        setHeading(currentHeadingRef.current);
+      }
+      animFrameRef.current = requestAnimationFrame(loop);
+    };
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
+
+  // Update location data
+  const applyCoordinates = useCallback((lat, lng, accuracy = null) => {
+    setCoords({ lat, lng });
+    if (accuracy) setGpsAccuracy(accuracy);
+    const b = getQiblaDirection(lat, lng);
+    setBearing(b);
+    setDistance(kaabaDistanceKm(lat, lng));
+    setPhase('active');
+  }, []);
+
+  // Prefill from cache on mount
+  useEffect(() => {
     const g = getGeoCache();
     if (g?.status === 'granted' && Number.isFinite(g.lat) && Number.isFinite(g.lng)) {
-      setCoords({ lat: g.lat, lng: g.lng });
-      setBearing(getQiblaDirection(g.lat, g.lng));
-      setDistance(kaabaDistanceKm(g.lat, g.lng));
-      setPhase('active');
-      setCompassMode('checking');
+      applyCoordinates(g.lat, g.lng);
+    } else {
+      // Default to Cairo coordinates until user grants location or picks city
+      const def = EGYPT_CITY_COORDS['القاهرة'];
+      if (def) {
+        applyCoordinates(def.lat, def.lng);
+        setSelectedCity('القاهرة');
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [applyCoordinates]);
 
-  const aligned = phase === 'active' && compassMode !== 'none'
-    ? Math.abs(shortestDiff(heading, bearing || 0)) <= 5
-    : false;
-
+  // Compass Sensor Listener
   const attachCompass = useCallback(() => {
-    let modeFound = null;
-    const extract = (e) => {
+    let modeDetected = null;
+
+    const handleOrientation = (e) => {
+      let rawHeading = null;
+      let mode = null;
+
+      // 1. iOS Safari webkitCompassHeading (High accuracy)
       if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading)) {
-        return { h: e.webkitCompassHeading, m: 'webkit' };
+        rawHeading = e.webkitCompassHeading;
+        mode = 'webkit';
       }
-      if (e.absolute === true && typeof e.alpha === 'number') {
-        return { h: 360 - e.alpha, m: 'abs' };
+      // 2. Android absolute orientation
+      else if (e.absolute === true && typeof e.alpha === 'number') {
+        rawHeading = 360 - e.alpha;
+        mode = 'abs';
       }
-      return null;
+      // 3. Sensor fallback with 3D tilt compensation
+      else if (typeof e.alpha === 'number' && typeof e.beta === 'number' && typeof e.gamma === 'number') {
+        rawHeading = computeTiltCompensatedHeading(e.alpha, e.beta, e.gamma);
+        mode = 'tilt';
+      }
+
+      if (rawHeading !== null) {
+        if (!modeDetected) {
+          modeDetected = mode;
+          setCompassMode(mode);
+        }
+
+        // Adjust for device screen orientation (landscape / rotated)
+        const screenAngle =
+          (typeof window !== 'undefined' && window.screen?.orientation?.angle) ||
+          (typeof window !== 'undefined' && window.orientation) || 0;
+
+        const adjustedHeading = ((rawHeading + screenAngle) % 360 + 360) % 360;
+        targetHeadingRef.current = adjustedHeading;
+      }
     };
-    const onOrient = (e) => {
-      const r = extract(e);
-      if (!r) return;
-      if (!modeFound) { modeFound = r.m; setCompassMode(r.m); }
-      const prev = headingRef.current;
-      const h = prev == null ? r.h : prev + shortestDiff(prev % 360, r.h) * 0.3;
-      headingRef.current = h;
-      setHeading(((h % 360) + 360) % 360);
-    };
-    window.addEventListener('deviceorientationabsolute', onOrient, true);
-    window.addEventListener('deviceorientation', onOrient, true);
-    const t = setTimeout(() => { if (!modeFound) setCompassMode('none'); }, 1600);
+
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.addEventListener('deviceorientation', handleOrientation, true);
+
+    const timeoutId = setTimeout(() => {
+      if (!modeDetected) {
+        setCompassMode('none');
+      }
+    }, 2000);
+
     return () => {
-      window.removeEventListener('deviceorientationabsolute', onOrient, true);
-      window.removeEventListener('deviceorientation', onOrient, true);
-      clearTimeout(t);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+      clearTimeout(timeoutId);
     };
   }, []);
 
+  // Request motion permission (iOS 13+) and attach compass
+  const enableCompass = useCallback(() => {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.DeviceOrientationEvent !== 'undefined' &&
+      typeof window.DeviceOrientationEvent.requestPermission === 'function'
+    ) {
+      window.DeviceOrientationEvent.requestPermission()
+        .then((res) => {
+          if (res === 'granted') {
+            setCompassMode('checking');
+            attachCompass();
+          } else {
+            setCompassMode('none');
+          }
+        })
+        .catch(() => setCompassMode('none'));
+    } else {
+      setCompassMode('checking');
+      attachCompass();
+    }
+  }, [attachCompass]);
+
+  useEffect(() => {
+    if (effectivePage === 'qibla') {
+      const cleanup = attachCompass();
+      return cleanup;
+    }
+  }, [effectivePage, attachCompass]);
+
+  // Live Continuous Geolocation Watcher
   const startLocate = useCallback(() => {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
       setPhase('unsupported');
@@ -94,237 +207,236 @@ export default function QiblaPage({ effectivePage }) {
     }
     setPhase('locating');
 
-    let sensorGranted = true;
-    const proceed = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          saveGeoCache({ lat, lng, status: 'granted', ts: Date.now() });
-          setCoords({ lat, lng });
-          setBearing(getQiblaDirection(lat, lng));
-          setDistance(kaabaDistanceKm(lat, lng));
-          headingRef.current = null;
-          setPhase('active');
-          if (sensorGranted) {
-            setCompassMode('checking');
-          } else {
-            setCompassMode('none');
-          }
-        },
-        (err) => {
-          setPhase(err.code === 1 ? 'denied' : 'error');
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-      );
-    };
-
-    // iOS 13+ requires explicit permission for motion sensors, inside a user gesture
-    try {
-      if (
-        typeof window.DeviceOrientationEvent !== 'undefined' &&
-        typeof window.DeviceOrientationEvent.requestPermission === 'function'
-      ) {
-        window.DeviceOrientationEvent.requestPermission()
-          .then((res) => { sensorGranted = res === 'granted'; proceed(); })
-          .catch(() => { sensorGranted = false; proceed(); });
-      } else {
-        proceed();
-      }
-    } catch (e) {
-      sensorGranted = false;
-      proceed();
+    if (watchPosIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchPosIdRef.current);
     }
-  }, []);
+
+    watchPosIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        saveGeoCache({ lat: latitude, lng: longitude, status: 'granted', ts: Date.now() });
+        applyCoordinates(latitude, longitude, accuracy);
+        setSelectedCity('');
+      },
+      (err) => {
+        if (phase === 'locating') {
+          setPhase(err.code === 1 ? 'denied' : 'error');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
+    );
+
+    enableCompass();
+  }, [applyCoordinates, enableCompass, phase]);
 
   useEffect(() => {
-    if (phase !== 'active') return;
-    if (compassMode !== 'checking') return;
-    const cleanup = attachCompass();
-    return cleanup;
-  }, [phase, compassMode, attachCompass]);
-
-  useEffect(() => () => {
-    if (watchIdRef.current !== null && watchIdRef.current !== undefined) navigator.geolocation.clearWatch(watchIdRef.current);
-  }, []);
-
-  // Re-request compass permission (iOS) / restart sensor detection — user initiated
-  const enableCompass = useCallback(() => {
-    const begin = () => { headingRef.current = null; setCompassMode('checking'); };
-    try {
-      if (
-        typeof window.DeviceOrientationEvent !== 'undefined' &&
-        typeof window.DeviceOrientationEvent.requestPermission === 'function'
-      ) {
-        window.DeviceOrientationEvent.requestPermission()
-          .then((r) => { if (r === 'granted') begin(); else setCompassMode('none'); })
-          .catch(() => setCompassMode('none'));
-      } else {
-        begin();
+    return () => {
+      if (watchPosIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchPosIdRef.current);
       }
-    } catch {
-      setCompassMode('none');
-    }
+    };
   }, []);
 
-  const recalibrate = useCallback(() => {
-    headingRef.current = null;
-    setShowCalibrate(false);
-  }, []);
+  // Manual city change (PC / fallback)
+  const handleCitySelect = (cityName) => {
+    setSelectedCity(cityName);
+    const c = EGYPT_CITY_COORDS[cityName];
+    if (c) {
+      applyCoordinates(c.lat, c.lng);
+    }
+  };
+
+  const diffAngle = bearing !== null ? shortestDiff(heading, bearing) : 0;
+  const isAligned = compassMode !== 'none' && Math.abs(diffAngle) <= 4;
+
+  // Haptic feedback when aligned
+  useEffect(() => {
+    if (isAligned && !wasAlignedRef.current) {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate([45, 30, 45]); } catch (e) {}
+      }
+    }
+    wasAlignedRef.current = isAligned;
+  }, [isAligned]);
+
+  const dialRotation = compassMode === 'none' ? 0 : -heading;
+  const markerAngle = bearing !== null ? bearing + dialRotation : 0;
 
   const ticks = [];
   for (let i = 0; i < 72; i++) {
-    ticks.push(<span key={i} className={`qibla-tick${i % 6 === 0 ? ' major' : ''}`} style={{ transform: `rotate(${i * 5}deg)` }} />);
+    ticks.push(
+      <span
+        key={i}
+        className={`qibla-tick${i % 6 === 0 ? ' major' : ''}`}
+        style={{ transform: `rotate(${i * 5}deg)` }}
+      />
+    );
   }
-
-  const dialRotation = compassMode === 'none' ? 0 : -heading;
-  const markerAngle = bearing !== null && bearing !== undefined ? bearing + dialRotation : null;
 
   return (
     <section className={`page-section ${effectivePage === 'qibla' ? 'active' : ''}`}>
       <div className="page-header">
-        <h1><i className="fas fa-kaaba"></i> القبلة</h1>
-        <p>حدد اتجاه القبلة إلى الكعبة المشرفة من مكانك</p>
+        <h1><i className="fas fa-kaaba"></i> بوصلة القبلة المباشرة</h1>
+        <p>تحديد دقيق وحي لاتجاه الكعبة المشرفة مع حساس البوصلة التفاعلي</p>
       </div>
 
       <div className="page-content">
         <div className="qibla-wrap">
-
-          {(phase === 'idle' || phase === 'unsupported') && (
-            <div className="qibla-state-card">
-              <div className="qibla-state-icon"><i className="fas fa-location-crosshairs"></i></div>
-              <h2>تحديد اتجاه القبلة</h2>
-              <p>
-                سنحتاج إلى معرفة موقعك الحالي لحساب اتجاه الكعبة بدقة،
-                وستُستخدم صلاحية الموقع داخل هذه الصفحة فقط.
-              </p>
-              {phase === 'unsupported' && (
-                <div className="qibla-note warn"><i className="fas fa-triangle-exclamation"></i> متصفحك لا يدعم تحديد الموقع</div>
-              )}
-              <button className="qibla-start-btn" onClick={startLocate}>
-                <i className="fas fa-compass"></i> حدد موقعي واعرض القبلة
-              </button>
-            </div>
-          )}
-
           {phase === 'locating' && (
             <div className="qibla-state-card">
               <div className="qibla-spinner"></div>
-              <h2>جارٍ تحديد موقعك…</h2>
-              <p>تأكد من تشغيل خدمة GPS على جهازك للحصول على أدق نتيجة</p>
+              <h2>جارٍ تحديد موقعك بدقة…</h2>
+              <p>يرجى التأكد من تشغيل الـ GPS والسماح بالموقع</p>
             </div>
           )}
 
           {phase === 'denied' && (
             <div className="qibla-state-card">
               <div className="qibla-state-icon denied"><i className="fas fa-location-slash"></i></div>
-              <h2>تم رفض إذن الموقع</h2>
-              <p>
-                للسماح بالموقع: افتح إعدادات المتصفح ← الأذونات ← الموقع واختر «سماح» لهذا الموقع، ثم أعد المحاولة.
-                في آيفون: الإعدادات ← الخصوصية ← خدمات الموقع ← المتصفح ← «أثناء استخدام التطبيق».
-              </p>
+              <h2>لم يتم منح إذن الموقع</h2>
+              <p>يمكنك اختيار مدينتك يدوياً من الأسفل أو إعادة المحاولة لتحديد موقعك التلقائي.</p>
               <button className="qibla-start-btn" onClick={startLocate}>
-                <i className="fas fa-rotate-right"></i> إعادة المحاولة
+                <i className="fas fa-rotate-right"></i> إعادة طلب الإذن
               </button>
             </div>
           )}
 
-          {phase === 'error' && (
-            <div className="qibla-state-card">
-              <div className="qibla-state-icon denied"><i className="fas fa-satellite-dish"></i></div>
-              <h2>تعذر تحديد موقعك</h2>
-              <p>تأكد من تفعيل خدمة الموقع GPS وإشارة الشبكة ثم أعد المحاولة</p>
-              <button className="qibla-start-btn" onClick={startLocate}>
-                <i className="fas fa-rotate-right"></i> إعادة المحاولة
-              </button>
-            </div>
-          )}
-
-          {phase === 'active' && bearing !== null && bearing !== undefined && (
+          {bearing !== null && (
             <>
-              <div className={`qibla-compass${aligned ? ' aligned' : ''}`}>
+              {/* Dynamic Guidance Banner */}
+              <div className={`qibla-guidance-banner ${isAligned ? 'aligned' : ''}`}>
+                {compassMode === 'none' ? (
+                  <span>
+                    <i className="fas fa-compass"></i> وجه أعلى هاتفك بزاوية <strong>{Math.round(bearing)}°</strong> باتجاه {getDirectionName(bearing)}
+                  </span>
+                ) : isAligned ? (
+                  <span>
+                    <i className="fas fa-check-circle"></i> ✨ أنت الآن في اتجاه القبلة تماماً — تقبل الله صلاتك 🕋
+                  </span>
+                ) : diffAngle > 0 ? (
+                  <span>
+                    <i className="fas fa-arrow-turn-left"></i> أدر هاتفك <strong>{Math.round(diffAngle)}°</strong> يساراً
+                  </span>
+                ) : (
+                  <span>
+                    <i className="fas fa-arrow-turn-right"></i> أدر هاتفك <strong>{Math.round(Math.abs(diffAngle))}°</strong> يميناً
+                  </span>
+                )}
+              </div>
+
+              {/* Live Compass UI */}
+              <div className={`qibla-compass ${isAligned ? 'aligned' : ''}`}>
+                {/* Rotating Dial Ring */}
                 <div className="qibla-dial" style={{ transform: `rotate(${dialRotation}deg)` }}>
                   <div className="qibla-ring">{ticks}</div>
-                  {CARDINALS.map(c => (
-                    <span key={c.label} className={`qibla-cardinal${c.deg === 0 ? ' north' : ''}`}
-                      style={{ transform: `rotate(${c.deg}deg) translateY(-118px) rotate(${-c.deg}deg)` }}>
+                  {CARDINALS.map((c) => (
+                    <span
+                      key={c.label}
+                      className={`qibla-cardinal${c.deg === 0 ? ' north' : ''}`}
+                      style={{
+                        transform: `rotate(${c.deg}deg) translateY(-118px) rotate(${-c.deg}deg)`,
+                      }}
+                    >
                       {c.label}
                     </span>
                   ))}
                 </div>
 
+                {/* Kaaba Direction Marker */}
                 <div className="qibla-marker" style={{ transform: `rotate(${markerAngle}deg)` }}>
                   <span className="qibla-marker-line" />
                   <span className="qibla-marker-kaaba">🕋</span>
                 </div>
 
+                {/* Center dot & Device Heading Needle */}
                 <div className="qibla-center-dot" />
-                <div className={`qibla-top-arrow${aligned ? ' hit' : ''}`}>
+                <div className={`qibla-top-arrow ${isAligned ? 'hit' : ''}`}>
                   <i className="fas fa-caret-up"></i>
                 </div>
 
-                {aligned && <div className="qibla-aligned-badge">أنت الآن باتجاه القبلة</div>}
+                {isAligned && <div className="qibla-aligned-badge">أنت باتجاه القبلة 🕋</div>}
               </div>
 
+              {/* Real-time stats */}
               <div className="qibla-readouts">
                 <div className="qibla-chip">
-                  <span className="qc-label">اتجاه القبلة من الشمال</span>
+                  <span className="qc-label">اتجاه القبلة</span>
                   <span className="qc-value">{Math.round(bearing)}°</span>
                 </div>
                 <div className="qibla-chip">
-                  <span className="qc-label">اتجاهك الحالي</span>
-                  <span className="qc-value">{compassMode === 'none' ? '—' : `${Math.round(heading)}°`}</span>
+                  <span className="qc-label">توجيه الهاتف</span>
+                  <span className="qc-value">{compassMode === 'none' ? 'ثابت' : `${Math.round(heading)}°`}</span>
                 </div>
                 <div className="qibla-chip">
-                  <span className="qc-label">المسافة إلى الكعبة</span>
-                  <span className="qc-value">{distance >= 1000 ? `${(distance / 1000).toFixed(1)} ألف كم` : `${Math.round(distance)} كم`}</span>
+                  <span className="qc-label">المسافة للكعبة</span>
+                  <span className="qc-value">
+                    {distance >= 1000
+                      ? `${(distance / 1000).toFixed(1)} ألف كم`
+                      : `${Math.round(distance)} كم`}
+                  </span>
                 </div>
               </div>
 
-              <div className="qibla-direction-line">
-                <i className="fas fa-compass"></i>
-                <span>اتجاه القبلة: <strong>{Math.round(bearing)}°</strong></span>
-                <span className="qdl-sep">•</span>
-                <span>القبلة تقع باتجاه {getDirectionName(bearing)}</span>
-              </div>
-
+              {/* Status Note & Sensor Calibration */}
               {compassMode === 'none' ? (
-                <>
-                  <div className="qibla-note info">
-                    <i className="fas fa-circle-info"></i>
-                    بوصلة جهازك غير مفعّلة هنا. الدائرة أعلاه ثابتة جهة الشمال للأعلى:
-                    وجّه نفسك شمالاً أولاً ثم اتبع علامة 🕋 بالزاوية الموضحة.
+                <div className="qibla-note info">
+                  <i className="fas fa-circle-info"></i>
+                  <div>
+                    حساس البوصلة غير مفعل أو غير متوفر على هذا الجهاز. يمكنك توجيه الهاتف باتجاه <strong>{Math.round(bearing)}°</strong> نسبة للشمال الحقيقي.
+                    <br />
+                    <button className="qibla-compass-btn" style={{ marginTop: '8px' }} onClick={enableCompass}>
+                      <i className="fas fa-compass"></i> تفعيل حساس البوصلة
+                    </button>
                   </div>
-                  <button className="qibla-compass-btn" onClick={enableCompass}>
-                    <i className="fas fa-compass"></i> تفعيل البوصلة
-                  </button>
-                </>
+                </div>
               ) : (
                 <div className="qibla-note ok">
                   <i className="fas fa-mobile-screen-button"></i>
-                  امسك الهاتف مستوياً بعيداً عن المعادن وحرّكه بحركة دائرية واسعة عند الحاجة لمعايرة البوصلة.
+                  البوصلة التفاعلية نشطة ومباشرة. احرص على مسك الهاتف أفقياً بعيداً عن الأجسام المغناطيسية.
                 </div>
               )}
 
-              <button className="qibla-calibrate-toggle" onClick={() => setShowCalibrate(s => !s)}>
-                <i className="fas fa-arrows-spin"></i> إعادة معايرة البوصلة
-              </button>
+              {/* Manual City Selector for flexibility */}
+              <div className="qibla-city-select-box">
+                <label htmlFor="qibla-city-dropdown">
+                  <i className="fas fa-map-pin"></i> اختر مدينتك لحساب الاتجاه:
+                </label>
+                <select
+                  id="qibla-city-dropdown"
+                  value={selectedCity}
+                  onChange={(e) => handleCitySelect(e.target.value)}
+                  className="qibla-city-dropdown"
+                >
+                  <option value="">-- موقعي الحالي (GPS دقيق) --</option>
+                  {Object.keys(EGYPT_CITY_COORDS).map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="qibla-action-buttons">
+                <button className="qibla-restart" onClick={startLocate}>
+                  <i className="fas fa-location-crosshairs"></i> تحديث GPS الحي
+                </button>
+                <button className="qibla-restart" onClick={() => setShowCalibrate((s) => !s)}>
+                  <i className="fas fa-arrows-spin"></i> معايرة البوصلة
+                </button>
+              </div>
+
               {showCalibrate && (
                 <div className="qibla-calibrate-panel">
+                  <h4>طريقة معايرة بوصلة الهاتف:</h4>
                   <ol>
-                    <li>ابتعد عن المعادن والإلكترونيات والحقول المغناطيسية.</li>
-                    <li>امسك الهاتف أمامك وحرّكه بحركة «8» العربية واسعة 2–3 مرات.</li>
-                    <li>أدر الهاتف بكل الاتجاهات ثم ثبّته مستوياً.</li>
+                    <li>حرّك هاتفك في الهواء على شكل رقم <strong>8</strong> باللغة الإنجليزية مرتين أو ثلاثاً.</li>
+                    <li>ابتعد عن المعادن، أغطية الهواتف المغناطيسية، والأجهزة الكهربائية.</li>
+                    <li>امسك الهاتف مستوياً بشكل أفقي للحصول على أقصى دقة.</li>
                   </ol>
-                  <button className="qibla-calibrate-reset" onClick={recalibrate}>
-                    <i className="fas fa-rotate-right"></i> إعادة ضبط المؤشر الآن
+                  <button className="qibla-calibrate-reset" onClick={() => setShowCalibrate(false)}>
+                    تمت المعايرة
                   </button>
                 </div>
               )}
-
-              <button className="qibla-restart" onClick={startLocate}>
-                <i className="fas fa-arrows-rotate"></i> تحديث الموقع
-              </button>
             </>
           )}
         </div>
