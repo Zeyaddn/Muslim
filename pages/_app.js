@@ -24,14 +24,6 @@ export default function App({ Component, pageProps }) {
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       if (process.env.NODE_ENV === 'production') {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
-        // Auto-reload once when a freshly-installed SW takes control, so users
-        // always see the latest version without manual hard-refreshes.
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (refreshing) return;
-          refreshing = true;
-          window.location.reload();
-        });
       } else {
         navigator.serviceWorker.getRegistrations()
           .then(regs => regs.forEach(r => r.unregister()))

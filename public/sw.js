@@ -1,5 +1,5 @@
-/* هُدَى Service Worker — PWA v8 (Static Export: Offline First) */
-const VERSION = 'huda-v8';
+/* هُدَى Service Worker — PWA v9 (Instant App Launch + Offline First) */
+const VERSION = 'huda-v9';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 const IMAGE_CACHE = VERSION + '-images';
@@ -8,9 +8,10 @@ const API_CACHE = VERSION + '-api';
 
 const PRECACHE_URLS = [
   '/',
-  '/offline/',
   '/manifest.json',
   '/favicon.png',
+  '/icon-192.png',
+  '/icon-512.png',
   '/apple-touch-icon.png',
 ];
 
@@ -79,19 +80,40 @@ async function staleWhileRevalidate(request, cacheName) {
 }
 
 async function navigationHandler(request) {
-  try {
-    const fresh = await fetch(request);
+  const cached = (await caches.match(request).catch(() => null)) ||
+                 (await caches.match('/').catch(() => null));
+
+  // Background network refresh
+  const networkFetch = fetch(request).then(async (fresh) => {
     if (fresh && fresh.status === 200) {
       const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, fresh.clone()).catch(() => {});
     }
     return fresh;
+  });
+
+  // If already cached, respond immediately or within 800ms race for instant app launch
+  if (cached) {
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 800));
+    try {
+      const winner = await Promise.race([networkFetch, timeoutPromise]);
+      if (winner) return winner;
+      // Timeout reached: serve cached instantly, continue network in background
+      networkFetch.catch(() => {});
+      return cached;
+    } catch (e) {
+      return cached;
+    }
+  }
+
+  // Not in cache: wait for network
+  try {
+    return await networkFetch;
   } catch (err) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    const offline = await caches.match('/offline/');
+    const offline = (await caches.match('/offline/').catch(() => null)) ||
+                    (await caches.match('/offline').catch(() => null));
     return offline || new Response(
-      '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;padding:60px"><h1>لا يوجد اتصال بالإنترنت حالياً</h1><p>يمكنك الاستمرار في استخدام المحتوى المتاح بدون إنترنت.</p></body></html>',
+      '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><body style="font-family:sans-serif;text-align:center;padding:60px 20px;background:#faf6f0;color:#1a3d30"><h2>لا يوجد اتصال بالإنترنت حالياً</h2><p>يمكنك الاستمرار في استخدام المحتوى المخزن مسبقاً.</p></body></html>',
       { headers: { 'Content-Type': 'text/html; charset=utf-8' }, status: 503 }
     );
   }
