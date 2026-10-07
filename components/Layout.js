@@ -50,7 +50,6 @@ export default function Layout({ children }) {
 
   // In-app section switching: brief loader for a smooth, snappy transition.
   const navigate = useCallback((page) => {
-    setNavLoading(true);
     // Standalone route (/qibla …): internal sections don't exist here —
     // go home first, then open the requested section after landing.
     if (router.pathname !== '/') {
@@ -62,12 +61,9 @@ export default function Layout({ children }) {
       router.push('/');
       return;
     }
-    setTimeout(() => {
-      setActivePage(page);
-      if (VALID_PAGES.includes(page)) localStorage.setItem('lastPage', page);
-      window.scrollTo({ top: 0, behavior: 'auto' });
-      setTimeout(() => setNavLoading(false), 160);
-    }, 130);
+    setActivePage(page);
+    if (VALID_PAGES.includes(page)) localStorage.setItem('lastPage', page);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [router]);
 
   const childProps = { activePage, onNavigate: navigate, theme, onToggleTheme: toggleTheme, onOpenSettings: () => setSettingsOpen(true) };
@@ -75,7 +71,6 @@ export default function Layout({ children }) {
   return (
     <>
       {navLoading && <div className="page-loader-bar" aria-hidden="true"></div>}
-      <div className={`page-veil${navLoading ? ' on' : ''}`} aria-hidden="true"></div>
       <Navbar {...childProps} />
       <div className="main-content">
         {typeof children === 'function' ? children(childProps) : children}

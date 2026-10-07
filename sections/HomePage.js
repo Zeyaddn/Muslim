@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import ISLAMIC_DATA from '../data/islamic-data';
 import { EGYPT_CITIES, EGYPT_CITY_COORDS } from '../constants';
 import { formatPrayerTime } from '../utils';
@@ -79,7 +79,7 @@ export default function HomePage({
         </div>
         <div className="quran-messages-carousel">
           {ISLAMIC_DATA.quranMessages.slice(0, 4).map((msg, i) => (
-            <div key={i} className="quran-message-card" style={{ animationDelay: `${i * 0.15}s` }}>
+            <div key={i} className="quran-message-card">
               <div className="quran-message-text">{msg.text}</div>
               <div className="quran-message-reference">
                 <span className="quran-message-surah">سورة {msg.surah}</span>

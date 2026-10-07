@@ -5,19 +5,8 @@ export default function SplashScreen() {
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Quick, smooth splash for 1.4 seconds then fade out
-    const fadeTimer = setTimeout(() => {
-      setFading(true);
-    }, 1400);
-
-    const removeTimer = setTimeout(() => {
-      setVisible(false);
-    }, 1800);
-
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
-    };
+    // Instant dismiss — no startup delay
+    setVisible(false);
   }, []);
 
   if (!visible) return null;

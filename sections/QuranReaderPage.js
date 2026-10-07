@@ -31,8 +31,6 @@ export default function QuranReaderPage({
   audioRef, setQuranFontSize,
 }) {
   const [currentPage, setCurrentPage] = useState(0);
-  const [flipDir, setFlipDir] = useState(null);
-  const [isFlipping, setIsFlipping] = useState(false);
   const [showToolbar, setShowToolbar] = useState(true);
   const pages = surahData ? buildPages(surahData.ayahs, quranFontSize) : [];
   const totalPages = pages.length;
@@ -49,11 +47,9 @@ export default function QuranReaderPage({
   }, [currentAyahIdx]);
 
   const goToPage = useCallback(function(next) {
-    if (isFlipping || next === currentPage) return;
-    setFlipDir(next > currentPage ? 'next' : 'prev');
-    setIsFlipping(true);
-    setTimeout(function() { setCurrentPage(next); setIsFlipping(false); setFlipDir(null); }, 340);
-  }, [isFlipping, currentPage]);
+    if (next === currentPage) return;
+    setCurrentPage(next);
+  }, [currentPage]);
 
   const nextPage = useCallback(function() { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }, [currentPage, totalPages, goToPage]);
   const prevPage = useCallback(function() { if (currentPage > 0) goToPage(currentPage - 1); }, [currentPage, goToPage]);
@@ -155,7 +151,7 @@ export default function QuranReaderPage({
         )}
 
         {!loadingSurah && surahData && (
-          <div className={`mushaf-page-wrap ${isFlipping ? 'flipping flip-' + flipDir : ''}`}>
+          <div className="mushaf-page-wrap">
             <div className="mushaf-page mushaf-page-main">
               <div className="mushaf-touch-zone right-zone" onClick={prevPage} aria-label="السابق"></div>
               <div className="mushaf-touch-zone left-zone" onClick={nextPage} aria-label="التالي"></div>
