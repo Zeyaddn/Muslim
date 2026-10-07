@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import InstallPrompt from '../components/InstallPrompt';
 import ConnectionBanner from '../components/ConnectionBanner';
 import ErrorBoundary from '../components/ErrorBoundary';
-import SplashScreen from '../components/SplashScreen';
+
 import { initLocalReminders } from '../utils/local-reminders';
 import '../styles/globals.css';
 
@@ -64,7 +64,7 @@ export default function App({ Component, pageProps }) {
         <meta name="apple-mobile-web-app-title" content="هُدَى" />
         <meta name="application-name" content="هُدَى" />
       </Head>
-      <SplashScreen />
+
       <Layout>
         {(childProps) => <Component {...pageProps} {...childProps} />}
       </Layout>
