@@ -931,9 +931,11 @@ export default function Index({ activePage, onNavigate, theme }) {
       }
       if (found === -1 && ctMs >= (ts[ts.length - 1]?.timestamp_to || 0)) found = ts.length - 1;
       if (found >= 0) {
-        lastTsIdxRef.current = found;
-        setCurrentAyahIdx(found);
-        scrollAyahIntoView(found);
+        if (lastTsIdxRef.current !== found) {
+          lastTsIdxRef.current = found;
+          setCurrentAyahIdx(found);
+          scrollAyahIntoView(found);
+        }
       }
     } else if (!ayahModeRef.current) {
       // Stream mode without real timestamps: highlight stays where the user
