@@ -1,4 +1,4 @@
-﻿import Document, { Html, Head, Main, NextScript } from 'next/document';
+import Document, { Html, Head, Main, NextScript } from 'next/document';
 
 export default class MyDocument extends Document {
   render() {
@@ -7,7 +7,6 @@ export default class MyDocument extends Document {
         <Head>
           <meta charSet="UTF-8" />
           <meta name="theme-color" content="#1a6b4a" />
-          <meta name="color-scheme" content="light dark" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -38,12 +37,36 @@ export default class MyDocument extends Document {
           {/* Font Awesome CDN */}
           <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
 
-{/* Arabic Fonts - single load point (globals.css @import removed) */}
+          {/* Arabic Fonts - single load point (globals.css @import removed) */}
           {/* display=swap for non-Quran fonts, display=block for Quran font to prevent FOUT */}
-          {/* Cairo was removed: it only ever served as a fallback behind Noto Kufi Arabic / IBM Plex Sans Arabic. */}
           <link
             href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&family=Amiri+Quran&family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=Noto+Kufi+Arabic:wght@400;600;700&display=swap"
             rel="stylesheet"
+          />
+
+          {/*
+            CRITICAL: This blocking script runs BEFORE React hydrates.
+            It reads the saved theme from localStorage and applies it
+            immediately, preventing the flash of black/wrong background
+            on PWA launch (especially on Android/iOS home screen).
+          */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  try {
+                    var theme = localStorage.getItem('theme') || 'light';
+                    document.documentElement.setAttribute('data-theme', theme);
+                    document.documentElement.style.background = theme === 'dark' ? '#080d10' : '#f8f7f4';
+                    document.documentElement.dir = 'rtl';
+                    document.documentElement.lang = 'ar';
+                  } catch(e) {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                    document.documentElement.style.background = '#f8f7f4';
+                  }
+                })();
+              `,
+            }}
           />
         </Head>
         <body>
