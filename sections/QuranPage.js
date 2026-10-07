@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import ISLAMIC_DATA from '../data/islamic-data';
 
-export default function QuranPage({
+function QuranPage({
   effectivePage, apiSurahs, quranSearch, setQuranSearch,
   selectedReciter, setSelectedReciter, isMounted,
   quranBookmarks, toggleBookmark, lastRead,
@@ -80,3 +80,5 @@ export default function QuranPage({
     </section>
   );
 }
+
+export default React.memo(QuranPage);

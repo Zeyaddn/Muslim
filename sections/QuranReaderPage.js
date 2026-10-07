@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toArabicNum } from '../utils';
 
 function buildPages(ayahs, fontRem = 1.4) {
@@ -19,7 +19,7 @@ function buildPages(ayahs, fontRem = 1.4) {
   return pages;
 }
 
-export default function QuranReaderPage({
+function QuranReaderPage({
   effectivePage, effectiveNavigate, surahData, loadingSurah,
   surahLoadError, retryLoadSurah,
   audioPlaying, currentAyahIdx, activeAyahRef,
@@ -242,3 +242,5 @@ export default function QuranReaderPage({
     </section>
   );
 }
+
+export default React.memo(QuranReaderPage);

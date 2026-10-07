@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ISLAMIC_DATA from '../data/islamic-data';
 
-export default function ArticlesPage({ effectivePage }) {
+function ArticlesPage({ effectivePage }) {
   const [openArticle, setOpenArticle] = useState(null);
 
   useEffect(() => {
@@ -61,3 +61,5 @@ export default function ArticlesPage({ effectivePage }) {
     </section>
   );
 }
+
+export default React.memo(ArticlesPage);

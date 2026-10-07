@@ -1,6 +1,7 @@
+import React from 'react';
 import { SCHOLAR_VIDEOS } from '../constants';
 
-export default function VideosPage({ effectivePage }) {
+function VideosPage({ effectivePage }) {
   return (
     <section className={`page-section ${effectivePage === 'videos' ? 'active' : ''}`}>
       <div className="page-header">
@@ -52,3 +53,5 @@ export default function VideosPage({ effectivePage }) {
     </section>
   );
 }
+
+export default React.memo(VideosPage);

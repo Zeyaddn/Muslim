@@ -1,4 +1,5 @@
-export default function NamesPage({ effectivePage, namesSearch, setNamesSearch, filteredNames }) {
+import React from 'react';
+function NamesPage({ effectivePage, namesSearch, setNamesSearch, filteredNames }) {
   return (
     <section className={`page-section ${effectivePage === 'names' ? 'active' : ''}`}>
       <div className="page-header">
@@ -24,3 +25,5 @@ export default function NamesPage({ effectivePage, namesSearch, setNamesSearch, 
     </section>
   );
 }
+
+export default React.memo(NamesPage);

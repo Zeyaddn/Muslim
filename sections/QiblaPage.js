@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getQiblaDirection, getDirectionName } from '../utils';
 import { getGeoCache, saveGeoCache } from '../utils/prayer-push';
 import { EGYPT_CITY_COORDS } from '../constants';
@@ -50,7 +50,7 @@ function computeTiltCompensatedHeading(alpha, beta, gamma) {
   return heading;
 }
 
-export default function QiblaPage({ effectivePage }) {
+function QiblaPage({ effectivePage }) {
   const [phase, setPhase] = useState('idle'); // idle | locating | active | denied | error | unsupported
   const [coords, setCoords] = useState(null);
   const [selectedCity, setSelectedCity] = useState('');
@@ -444,3 +444,5 @@ export default function QiblaPage({ effectivePage }) {
     </section>
   );
 }
+
+export default React.memo(QiblaPage);

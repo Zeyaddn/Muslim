@@ -1,7 +1,8 @@
+import React from 'react';
 import ISLAMIC_DATA from '../data/islamic-data';
 import { TARGETS } from '../constants';
 
-export default function TasbeehPage({
+function TasbeehPage({
   effectivePage, tasbeehDhikr, setTasbeehDhikr,
   tasbeehCount, setTasbeehCount, tasbeehTarget, setTasbeehTarget,
   handleTasbeeh, tasbeehProgress,
@@ -60,3 +61,5 @@ export default function TasbeehPage({
     </section>
   );
 }
+
+export default React.memo(TasbeehPage);

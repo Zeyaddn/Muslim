@@ -461,7 +461,6 @@ export default function Index({ activePage, onNavigate, theme }) {
         const m = Math.floor((diff % 3600000) / 60000);
         const s = Math.floor((diff % 60000) / 1000);
         const str = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        setCountdown(str);
         const el = document.getElementById('prayer-countdown-text');
         if (el && el.innerText !== str) el.innerText = str;
       }

@@ -1,9 +1,10 @@
+import React from 'react';
 import Link from 'next/link';
 import ISLAMIC_DATA from '../data/islamic-data';
 import { EGYPT_CITIES, EGYPT_CITY_COORDS } from '../constants';
 import { formatPrayerTime } from '../utils';
 
-export default function HomePage({
+function HomePage({
   effectivePage, effectiveNavigate, randomAyah, randomHadith,
   prayerTimes, nextPrayerIdx, countdown, userCity, setUserCity,
   geoStatus, onRequestLocation,
@@ -144,3 +145,4 @@ export default function HomePage({
   );
 }
 
+export default React.memo(HomePage);

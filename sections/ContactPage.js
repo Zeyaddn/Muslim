@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { showToast } from '../components/Toast';
 
 const EMAIL = 'zyadalasd47@gmail.com';
@@ -11,7 +11,7 @@ export const WhatsAppIcon = ({ size = 24 }) => (
   </svg>
 );
 
-export default function ContactPage({ effectivePage }) {
+function ContactPage({ effectivePage }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -131,3 +131,5 @@ export default function ContactPage({ effectivePage }) {
     </section>
   );
 }
+
+export default React.memo(ContactPage);

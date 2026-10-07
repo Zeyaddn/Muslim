@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ISLAMIC_DATA from '../data/islamic-data';
 import { copyText, htmlToDuaText, parseDuaCount, stripCountHints, arabizeRef, extractHisnRef, toArabicNum } from '../utils';
@@ -88,7 +88,7 @@ function iconForCategory(name) {
   return 'fa-hands-praying';
 }
 
-export default function AdhkarPage({
+function AdhkarPage({
   effectivePage, adhkarPlaying, adhkarPaused, adhkarAudioLoading,
   playAdhkarAudio, setTasbeehDhikr, setTasbeehCount, effectiveNavigate,
 }) {
@@ -325,3 +325,5 @@ export default function AdhkarPage({
     </section>
   );
 }
+
+export default React.memo(AdhkarPage);

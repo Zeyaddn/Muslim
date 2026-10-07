@@ -1,6 +1,7 @@
+import React from 'react';
 import PDF_BOOKS from '../data/pdf-books';
 
-export default function LibraryPage({
+function LibraryPage({
   effectivePage, librarySearch, setLibrarySearch,
   libraryCategory, setLibraryCategory, onOpenBook,
 }) {
@@ -86,3 +87,5 @@ export default function LibraryPage({
     </section>
   );
 }
+
+export default React.memo(LibraryPage);
